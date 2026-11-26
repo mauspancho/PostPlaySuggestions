@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/mauspancho/PostPlaySuggestions/main/images/plugin-icon.png",
         "versions": [
             {
+                "version": "0.5.0.0",
+                "changelog": "Soporte para Android TV y reproductores nativos: reproduce la mejor sugerencia al empezar los créditos; mejoras del panel en móvil, pantalla completa y navegación con mando.",
+                "targetAbi": "12.4.0.0",
+                "sourceUrl": "https://github.com/mauspancho/PostPlaySuggestions/releases/download/v0.5.0.0/PostPlaySuggestions_0.5.0.0.zip",
+                "checksum": "4925d46600b05d2937f9c92213e90812",
+                "timestamp": "2026-11-26T23:21:40Z"
+            },
+            {
                 "version": "0.4.2.0",
                 "changelog": "Icono del plugin adaptado al visor: fondo degradado y logo centrado, sin recortes. Sin cambios de comportamiento.",
                 "targetAbi": "12.4.0.0",
