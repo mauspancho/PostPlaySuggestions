@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/mauspancho/PostPlaySuggestions/main/images/plugin-icon.png",
         "versions": [
             {
+                "version": "0.4.1.0",
+                "changelog": "Agrega el icono del plugin en el catálogo y en la página del complemento. Sin cambios de comportamiento.",
+                "targetAbi": "12.4.0.0",
+                "sourceUrl": "https://github.com/mauspancho/PostPlaySuggestions/releases/download/v0.4.1.0/PostPlaySuggestions_0.4.1.0.zip",
+                "checksum": "e067b4ca3e77d64840bf55f7f303e54a",
+                "timestamp": "2026-11-26T21:18:18Z"
+            },
+            {
                 "version": "0.4.0.0",
                 "changelog": "- Corrige la detección en películas cuyo capítulo de créditos se llamaba \"Opening Credits\" al inicio.\n- Acepta como créditos el último capítulo cuando empieza en el tramo final (≥90 % del metraje).\n- Estima el inicio de créditos por porcentaje del metraje cuando el archivo no tiene capítulos (configurable, 94 % por defecto).\n- Reintenta leer los créditos si la primera consulta falla al empezar la reproducción.\n- Con esto el panel se abre al iniciar el final en todas las películas, no solo 20 segundos antes del cierre.",
                 "targetAbi": "12.4.0.0",

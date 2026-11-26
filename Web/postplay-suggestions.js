@@ -7,7 +7,7 @@
     window.__ppsInitialized = true;
 
     var PLUGIN_PATH = 'PostPlaySuggestions';
-    var VERSION = '0.4.0.0';
+    var VERSION = '0.4.1.0';
 
     var state = {
         config: {
