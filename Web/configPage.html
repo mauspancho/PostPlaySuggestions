@@ -34,6 +34,16 @@
                     </div>
 
                     <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ppsFallbackPercent">Porcentaje del metraje para créditos (estimación)</label>
+                        <input id="ppsFallbackPercent" type="number" min="80" max="99" step="1" is="emby-input" />
+                        <div class="fieldDescription">
+                            Solo se usa cuando la película no tiene segmentos de créditos ni capítulos utilizables.
+                            Las sugerencias aparecen a este porcentaje del metraje: 94 % equivale a los últimos
+                            6 minutos de una película de 100 minutos.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="ppsTriggerSeconds">Segundos antes del final (respaldo)</label>
                         <input id="ppsTriggerSeconds" type="number" min="1" max="300" step="1" is="emby-input" />
                         <div class="fieldDescription">
@@ -66,7 +76,7 @@
                         <ul class="fieldDescription" style="line-height:1.7;">
                             <li>El plugin inyecta automáticamente su script y su CSS en Jellyfin Web.</li>
                             <li>Detecta el inicio de los créditos finales con los segmentos <em>Outro</em> de Jellyfin o con los capítulos del archivo.</li>
-                            <li>Si no hay información de créditos, usa los segundos configurados antes del final como respaldo.</li>
+                            <li>Si no hay información de créditos, estima el inicio según el porcentaje configurado y, como último recurso, los segundos antes del final.</li>
                             <li>Solo se activa dentro del reproductor: nunca en el menú principal ni con vídeos ocultos.</li>
                             <li>Minimiza el vídeo en curso y muestra las sugerencias mientras siguen las letras del final.</li>
                         </ul>
@@ -138,6 +148,7 @@
                         document.querySelector('#ppsEnabled').checked = read(config, 'Enabled') !== false;
                         document.querySelector('#ppsMaxSuggestions').value = clamp(read(config, 'MaxSuggestions'), 1, 12, 6);
                         document.querySelector('#ppsTriggerSeconds').value = clamp(read(config, 'TriggerSecondsBeforeEnd'), 1, 300, 20);
+                        document.querySelector('#ppsFallbackPercent').value = clamp(read(config, 'FallbackCreditsPercent'), 80, 99, 94);
                         document.querySelector('#ppsFinaleOnly').checked = read(config, 'ShowOnSeriesFinaleOnly') !== false;
                         setStatus('');
                         Dashboard.hideLoadingMsg();
@@ -155,6 +166,7 @@
                         write(config, 'Enabled', document.querySelector('#ppsEnabled').checked);
                         write(config, 'MaxSuggestions', clamp(document.querySelector('#ppsMaxSuggestions').value, 1, 12, 6));
                         write(config, 'TriggerSecondsBeforeEnd', clamp(document.querySelector('#ppsTriggerSeconds').value, 1, 300, 20));
+                        write(config, 'FallbackCreditsPercent', clamp(document.querySelector('#ppsFallbackPercent').value, 80, 99, 94));
                         write(config, 'ShowOnSeriesFinaleOnly', document.querySelector('#ppsFinaleOnly').checked);
                         return ApiClient.updatePluginConfiguration(pluginId, config);
                     }).then(function () {
@@ -170,6 +182,7 @@
                 page.addEventListener('viewshow', load);
                 clampField('#ppsMaxSuggestions', 1, 12, 6);
                 clampField('#ppsTriggerSeconds', 1, 300, 20);
+                clampField('#ppsFallbackPercent', 80, 99, 94);
                 setTimeout(load, 250);
             })();
         </script>

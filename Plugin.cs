@@ -19,7 +19,7 @@ public sealed class PostPlaySuggestionsPlugin : BasePlugin<PluginConfiguration>,
     /// <summary>
     /// Plugin version used for cache busting and diagnostics.
     /// </summary>
-    public const string PluginVersion = "0.3.0.0";
+    public const string PluginVersion = "0.4.0.0";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PostPlaySuggestionsPlugin"/> class.

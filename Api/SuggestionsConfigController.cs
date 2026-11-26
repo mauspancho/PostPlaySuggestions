@@ -27,7 +27,7 @@ public sealed class SuggestionsConfigController : ControllerBase
     private const string CssResource = "Jellyfin.Plugin.PostPlaySuggestions.Web.postplay-suggestions.css";
 
     private static readonly Regex CreditsChapterPattern = new(
-        "end\\s*credits|endcredit|credits|cr[eé]ditos|g[eé]n[eé]rique|abspann|nachspann",
+        "end\\s*credits?|endcredit|closing\\s*credits?|end\\s*titles?|credits?|cr[eé]ditos?(\\s*finales)?|t[ií]tulos?\\s*de\\s*cr[eé]ditos?|g[eé]n[eé]rique|abspann|nachspann",
         RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly ISessionManager _sessionManager;
@@ -280,9 +280,18 @@ public sealed class SuggestionsConfigController : ControllerBase
 
                 if (ordered.Count > 0)
                 {
-                    var named = ordered.FirstOrDefault(chapter => IsCreditsChapterName(chapter.Name));
-                    if (named is not null
-                        && (runTimeTicks <= 0 || named.StartPositionTicks >= runTimeTicks * 0.6))
+                    var isEpisode = item is Episode;
+                    var finalPartStart = runTimeTicks > 0
+                        ? (long)(runTimeTicks * 0.6)
+                        : TimeSpan.TicksPerSecond;
+
+                    // Look only at the final 40 % of the item so that "Opening Credits"
+                    // chapters do not shadow the real end credits chapter.
+                    var named = ordered
+                        .Where(chapter => chapter.StartPositionTicks >= finalPartStart)
+                        .FirstOrDefault(chapter => IsCreditsChapterName(chapter.Name));
+
+                    if (named is not null)
                     {
                         startTicks = named.StartPositionTicks;
                         source = "chapter-name";
@@ -290,19 +299,23 @@ public sealed class SuggestionsConfigController : ControllerBase
                     else if (runTimeTicks > 0)
                     {
                         var last = ordered[^1];
-                        var isEpisode = item is Episode;
-                        var minimumChapters = isEpisode ? 3 : 4;
-                        var minimumRatio = isEpisode ? 0.85 : 0.80;
+                        var lastStart = last.StartPositionTicks;
+                        var ratio = lastStart / (double)runTimeTicks;
+                        var tail = runTimeTicks - lastStart;
                         var maximumTail = isEpisode
                             ? Math.Max(5 * TimeSpan.TicksPerMinute, (long)(runTimeTicks * 0.10))
                             : 15 * TimeSpan.TicksPerMinute;
 
-                        if (ordered.Count >= minimumChapters
-                            && last.StartPositionTicks >= runTimeTicks * minimumRatio
-                            && last.StartPositionTicks < runTimeTicks - TimeSpan.TicksPerSecond
-                            && runTimeTicks - last.StartPositionTicks <= maximumTail)
+                        var isLastChapterCredits = lastStart < runTimeTicks - TimeSpan.TicksPerSecond
+                            && (isEpisode
+                                ? ratio >= 0.92
+                                    || (ordered.Count >= 3 && ratio >= 0.85 && tail <= maximumTail)
+                                : ratio >= 0.90
+                                    || (ordered.Count >= 4 && ratio >= 0.80 && tail <= maximumTail));
+
+                        if (isLastChapterCredits)
                         {
-                            startTicks = last.StartPositionTicks;
+                            startTicks = lastStart;
                             source = "chapter-last";
                         }
                     }
@@ -311,6 +324,24 @@ public sealed class SuggestionsConfigController : ControllerBase
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "[PostPlaySuggestions] Could not read chapters for {ItemId}", itemId);
+            }
+        }
+
+        if (startTicks is null && runTimeTicks > 5 * TimeSpan.TicksPerMinute)
+        {
+            // No segment and no usable chapter information: estimate the credits
+            // start from a percentage of the runtime so the panel still opens near
+            // the end credits instead of only a few seconds before the file ends.
+            var configuration = PostPlaySuggestionsPlugin.Instance?.Configuration ?? new PluginConfiguration();
+            var percent = item is Episode
+                ? 97
+                : Math.Clamp(configuration.FallbackCreditsPercent, 80, 99);
+            var estimate = (long)(runTimeTicks * (percent / 100.0));
+
+            if (estimate > 0 && estimate < runTimeTicks - TimeSpan.TicksPerSecond)
+            {
+                startTicks = estimate;
+                source = "estimate";
             }
         }
 

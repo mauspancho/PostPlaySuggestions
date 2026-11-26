@@ -22,9 +22,11 @@ colores del tema activo.
 - Detecta el vídeo en reproducción y consulta la sesión actual (`NowPlaying`).
 - Se activa **justo cuando empiezan los créditos finales**:
   1. segmento `Outro` de Jellyfin (`/MediaSegments`),
-  2. capítulo cuyo nombre indique créditos,
-  3. último capítulo del archivo (heurística para películas y episodios),
-  4. respaldo: `TriggerSecondsBeforeEnd` segundos antes del final.
+  2. capítulo cuyo nombre indique créditos (ignora "Opening Credits" del inicio),
+  3. último capítulo del archivo cuando está en el tramo final (≥90 % del metraje),
+  4. estimación por porcentaje del metraje (`FallbackCreditsPercent`) cuando no hay capítulos,
+  5. último recurso: `TriggerSecondsBeforeEnd` segundos antes del final.
+- Reintenta leer los créditos si la primera consulta falla (token o sesión aún no listos).
 - Nunca se activa fuera del reproductor (menú principal, vídeo oculto o ajeno al ítem).
 - Películas: sugerencias vía `Items/{id}/Similar`, con respaldo a elementos recientes del mismo tipo.
 - Episodios: puede limitarse al último episodio de la última temporada (`ShowOnSeriesFinaleOnly`).
@@ -105,6 +107,7 @@ En el panel de Jellyfin: **Administración → Complementos → Post Play Sugges
 | --- | --- | --- |
 | Activar | Activa o desactiva el plugin | Sí |
 | Máximo de sugerencias | Tarjetas a mostrar (1–12) | 6 |
+| Porcentaje del metraje | Estimación del inicio de créditos cuando no hay segmentos ni capítulos (80–99) | 94 |
 | Segundos antes del final | Antelación de respaldo cuando no se detectan créditos (1–300) | 20 |
 | Solo al finalizar la serie | Solo último episodio de la última temporada | Sí |
 

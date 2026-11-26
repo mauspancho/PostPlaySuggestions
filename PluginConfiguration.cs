@@ -23,6 +23,12 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public int TriggerSecondsBeforeEnd { get; set; } = 20;
 
     /// <summary>
+    /// Gets or sets the runtime percentage used to estimate the end credits start
+    /// when the item has no media segments and no usable chapter markers.
+    /// </summary>
+    public int FallbackCreditsPercent { get; set; } = 94;
+
+    /// <summary>
     /// Gets or sets a value indicating whether suggestions should only be shown
     /// after the final episode of a series.
     /// </summary>

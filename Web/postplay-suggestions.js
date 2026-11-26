@@ -7,7 +7,7 @@
     window.__ppsInitialized = true;
 
     var PLUGIN_PATH = 'PostPlaySuggestions';
-    var VERSION = '0.3.0.0';
+    var VERSION = '0.4.0.0';
 
     var state = {
         config: {
@@ -33,6 +33,9 @@
         creditsStart: null,
         creditsItemId: null,
         creditsSource: null,
+        creditsAttempts: 0,
+        creditsLastAttempt: 0,
+        creditsPendingItemId: null,
         themeTimer: null
     };
 
@@ -303,26 +306,37 @@
         state.creditsStart = null;
         state.creditsItemId = null;
         state.creditsSource = null;
+        state.creditsAttempts = 0;
+        state.creditsLastAttempt = 0;
         if (state.activated) {
             closeSuggestions('item-change', true);
         }
     }
 
-    function loadCredits(item) {
+    function loadCredits(item, force) {
         if (!item || !item.itemId || !isLoggedIn()) {
             return Promise.resolve(null);
         }
 
-        if (state.creditsItemId === item.itemId) {
+        if (!force && state.creditsItemId === item.itemId) {
+            return Promise.resolve(state.creditsStart);
+        }
+
+        if (state.creditsPendingItemId === item.itemId) {
             return Promise.resolve(state.creditsStart);
         }
 
         state.creditsItemId = item.itemId;
+        state.creditsPendingItemId = item.itemId;
+        state.creditsAttempts += 1;
+        state.creditsLastAttempt = Date.now();
         state.creditsStart = null;
         state.creditsSource = null;
 
         return getJson(apiUrl('Credits', { itemId: item.itemId }))
             .then(function (payload) {
+                state.creditsPendingItemId = null;
+
                 if (!state.item || state.item.itemId !== item.itemId) {
                     return null;
                 }
@@ -342,8 +356,28 @@
                 return state.creditsStart;
             })
             .catch(function () {
+                state.creditsPendingItemId = null;
+                // Allow a retry on the next tick: the token or the session may
+                // not be ready yet when playback starts.
+                state.creditsItemId = null;
                 return null;
             });
+    }
+
+    function retryCreditsIfNeeded() {
+        if (!state.item || state.creditsStart || state.activated || state.dismissed) {
+            return;
+        }
+
+        if (state.creditsAttempts >= 20) {
+            return;
+        }
+
+        if (Date.now() - state.creditsLastAttempt < 15000) {
+            return;
+        }
+
+        loadCredits(state.item, true);
     }
 
     function isPlayerActive(video) {
@@ -1380,6 +1414,8 @@
         if (!isLoggedIn()) {
             return;
         }
+
+        retryCreditsIfNeeded();
 
         if (state.activated && (!state.video || !document.contains(state.video))) {
             closeSuggestions('video-gone');
