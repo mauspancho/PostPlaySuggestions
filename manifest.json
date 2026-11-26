@@ -1,0 +1,20 @@
+[
+    {
+        "guid": "f5051302-9a1f-417f-902d-c4e94faaa7fd",
+        "name": "Post Play Suggestions",
+        "description": "Muestra sugerencias estilo Netflix al empezar los créditos finales de una película o del último episodio de una serie, minimizando el reproductor.",
+        "overview": "Panel de sugerencias post-reproducción con tarjetas que permiten reproducir o abrir los detalles sin salir del reproductor.",
+        "owner": "mauspancho",
+        "category": "General",
+        "versions": [
+            {
+                "version": "0.3.0.0",
+                "changelog": "- Dispara el panel justo al empezar los créditos finales (segmentos Outro, capítulos o respaldo por segundos).\n- Minimiza el vídeo al 38 % del ancho y amplía las sugerencias al 62 %.\n- Corrige los botones Reproducir y Detalles de las tarjetas.\n- Evita que el panel aparezca al salir al menú principal.",
+                "targetAbi": "12.4.0.0",
+                "sourceUrl": "https://github.com/mauspancho/PostPlaySuggestions/releases/download/v0.3.0.0/PostPlaySuggestions_0.3.0.0.zip",
+                "checksum": "ec351d4d74e46c006e4df417bc884826",
+                "timestamp": "2026-11-26T02:37:29Z"
+            }
+        ]
+    }
+]

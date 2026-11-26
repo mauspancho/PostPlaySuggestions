@@ -1,0 +1,462 @@
+:root {
+    --pps-bg: #101010;
+    --pps-surface: #1c1c1c;
+    --pps-text: #ffffff;
+    --pps-muted: rgba(255, 255, 255, 0.66);
+    --pps-accent: #00a4dc;
+    --pps-accent-text: #ffffff;
+    --pps-border: rgba(255, 255, 255, 0.14);
+    --pps-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+    --pps-panel-width: clamp(560px, 62vw, 1280px);
+    --pps-video-width: calc(100vw - var(--pps-panel-width));
+}
+
+body.pps-active {
+    overflow: hidden !important;
+}
+
+body.pps-active .videoPlayerContainer,
+body.pps-active .pps-player-host {
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    width: var(--pps-video-width) !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 2147482000 !important;
+    background: #000 !important;
+    transform: none !important;
+    transition: width 0.35s ease, height 0.35s ease;
+}
+
+body.pps-active .videoPlayerContainer video,
+body.pps-active .pps-player-host video {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: contain !important;
+}
+
+.pps-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    display: flex;
+    justify-content: flex-end;
+    align-items: stretch;
+    color: var(--pps-text);
+    font-family: inherit;
+    pointer-events: none;
+    animation: pps-fade-in 0.24s ease both;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        transparent calc(100% - var(--pps-panel-width)),
+        rgba(0, 0, 0, 0.32) 100%
+    );
+}
+
+.pps-panel {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    width: var(--pps-panel-width);
+    max-width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--pps-surface) 0%, var(--pps-bg) 100%);
+    border-left: 1px solid var(--pps-border);
+    box-shadow: -24px 0 70px rgba(0, 0, 0, 0.5);
+    animation: pps-slide-in 0.3s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+
+.pps-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: clamp(1.1rem, 2.2vw, 1.8rem) clamp(1rem, 2vw, 1.6rem) 0.9rem;
+    border-bottom: 1px solid var(--pps-border);
+    background: linear-gradient(180deg, var(--pps-surface) 0%, rgba(0, 0, 0, 0) 100%);
+    flex: 0 0 auto;
+}
+
+.pps-header-text {
+    min-width: 0;
+}
+
+.pps-eyebrow {
+    margin: 0 0 0.35rem;
+    color: var(--pps-accent);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.pps-title {
+    margin: 0;
+    color: var(--pps-text);
+    font-size: clamp(1.35rem, 2.1vw, 1.9rem);
+    font-weight: 800;
+    line-height: 1.12;
+}
+
+.pps-subtitle {
+    margin: 0.4rem 0 0;
+    color: var(--pps-muted);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.pps-close {
+    flex: 0 0 auto;
+    width: 2.4rem;
+    height: 2.4rem;
+    border: 1px solid var(--pps-border);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--pps-text);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.pps-close:hover,
+.pps-close:focus-visible {
+    background: var(--pps-accent);
+    border-color: var(--pps-accent);
+    color: var(--pps-accent-text);
+    transform: rotate(90deg);
+    outline: none;
+}
+
+.pps-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem clamp(1rem, 2vw, 1.5rem) 1.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--pps-border) transparent;
+}
+
+.pps-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.pps-body::-webkit-scrollbar-thumb {
+    background: var(--pps-border);
+    border-radius: 999px;
+}
+
+.pps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 0.9rem;
+}
+
+.pps-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--pps-surface);
+    border: 1px solid var(--pps-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pps-card:hover,
+.pps-card:focus-within {
+    transform: translateY(-3px);
+    border-color: var(--pps-accent);
+    box-shadow: var(--pps-shadow);
+}
+
+.pps-poster {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    padding: 0;
+    border: 0;
+    background: linear-gradient(135deg, var(--pps-surface), var(--pps-bg));
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.pps-poster img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.pps-card:hover .pps-poster img {
+    transform: scale(1.06);
+    filter: brightness(0.82);
+}
+
+.pps-poster-empty::after {
+    content: "🎬";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    opacity: 0.35;
+}
+
+.pps-play-badge {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 50%;
+    background: var(--pps-accent);
+    color: var(--pps-accent-text);
+    font-size: 1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transform: translate(-50%, -50%) scale(0.82);
+    opacity: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.pps-card:hover .pps-play-badge,
+.pps-poster:focus-visible .pps-play-badge {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.pps-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.65rem 0.7rem 0.75rem;
+}
+
+.pps-card-title {
+    margin: 0;
+    color: var(--pps-text);
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pps-card-meta {
+    margin: 0;
+    color: var(--pps-muted);
+    font-size: 0.72rem;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pps-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+}
+
+.pps-btn {
+    appearance: none;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--pps-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--pps-text);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.pps-btn:hover,
+.pps-btn:focus-visible {
+    border-color: var(--pps-accent);
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+
+.pps-btn-primary {
+    background: var(--pps-accent);
+    border-color: var(--pps-accent);
+    color: var(--pps-accent-text);
+    font-weight: 800;
+}
+
+.pps-btn-primary:hover,
+.pps-btn-primary:focus-visible {
+    background: var(--pps-accent);
+    filter: brightness(1.08);
+    color: var(--pps-accent-text);
+}
+
+.pps-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 40vh;
+    padding: 2rem;
+    text-align: center;
+    color: var(--pps-muted);
+}
+
+.pps-empty p {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.pps-skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 0.9rem;
+}
+
+.pps-skeleton {
+    display: block;
+    aspect-ratio: 2 / 3;
+    border-radius: 14px;
+    background: linear-gradient(
+        110deg,
+        var(--pps-surface) 8%,
+        rgba(255, 255, 255, 0.09) 18%,
+        var(--pps-surface) 33%
+    );
+    background-size: 200% 100%;
+    animation: pps-shimmer 1.4s linear infinite;
+}
+
+@keyframes pps-shimmer {
+    to {
+        background-position-x: -200%;
+    }
+}
+
+@keyframes pps-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes pps-slide-in {
+    from {
+        transform: translateX(24px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 900px) {
+    :root {
+        --pps-panel-width: 100vw;
+        --pps-video-width: 100vw;
+    }
+
+    body.pps-active .videoPlayerContainer,
+    body.pps-active .pps-player-host {
+        width: 100vw !important;
+        height: 34vh !important;
+    }
+
+    .pps-overlay {
+        flex-direction: column;
+        justify-content: flex-end;
+        background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+    }
+
+    .pps-panel {
+        width: 100vw;
+        height: 66vh;
+        border-left: 0;
+        border-top: 1px solid var(--pps-border);
+        border-radius: 18px 18px 0 0;
+        animation-name: pps-slide-up;
+    }
+
+    .pps-header {
+        padding-top: 1rem;
+    }
+
+    .pps-grid,
+    .pps-skeleton-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+@keyframes pps-slide-up {
+    from {
+        transform: translateY(24px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 520px) {
+    .pps-grid,
+    .pps-skeleton-grid {
+        gap: 0.65rem;
+    }
+
+    .pps-card-actions {
+        flex-direction: column;
+    }
+
+    .pps-btn {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pps-overlay,
+    .pps-panel,
+    .pps-card,
+    .pps-poster img,
+    .pps-close,
+    .pps-play-badge,
+    .pps-skeleton {
+        animation: none !important;
+        transition: none !important;
+    }
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Post Play Suggestions</title>
+</head>
+<body>
+    <div id="PostPlaySuggestionsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="ppsConfigForm">
+                    <div class="verticalSection">
+                        <h1>Post Play Suggestions</h1>
+                        <p class="fieldDescription">
+                            Muestra una vista de sugerencias estilo Netflix cuando una película está por terminar
+                            o cuando finaliza el último episodio de una serie.
+                        </p>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ppsEnabled" type="checkbox" is="emby-checkbox" />
+                            <span>Activar Post Play Suggestions</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Si se desactiva, el reproductor web no cargará la vista de sugerencias.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ppsMaxSuggestions">Máximo de sugerencias</label>
+                        <input id="ppsMaxSuggestions" type="number" min="1" max="12" step="1" is="emby-input" />
+                        <div class="fieldDescription">Cantidad de tarjetas a mostrar. Valor recomendado: 6 (entre 1 y 12).</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ppsTriggerSeconds">Segundos antes del final (respaldo)</label>
+                        <input id="ppsTriggerSeconds" type="number" min="1" max="300" step="1" is="emby-input" />
+                        <div class="fieldDescription">
+                            Solo se usa cuando Jellyfin no tiene segmentos de créditos ni capítulos utilizables.
+                            Si hay créditos detectados, las sugerencias aparecen justo al comenzar las letras.
+                        </div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ppsFinaleOnly" type="checkbox" is="emby-checkbox" />
+                            <span>Mostrar solo al finalizar la serie</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Si está activo, los episodios intermedios no muestran sugerencias. Solo se muestran al terminar
+                            el último episodio de la última temporada. Si se desactiva, se muestran al final de cualquier episodio.
+                        </div>
+                    </div>
+
+                    <div class="verticalSection" style="margin-top:1.5em;">
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Guardar</span>
+                        </button>
+                    </div>
+
+                    <div id="ppsStatusMessage" class="fieldDescription" role="status" aria-live="polite" style="margin-top:1em;"></div>
+
+                    <div class="verticalSection" style="margin-top:1.5em;">
+                        <h2>Cómo funciona</h2>
+                        <ul class="fieldDescription" style="line-height:1.7;">
+                            <li>El plugin inyecta automáticamente su script y su CSS en Jellyfin Web.</li>
+                            <li>Detecta el inicio de los créditos finales con los segmentos <em>Outro</em> de Jellyfin o con los capítulos del archivo.</li>
+                            <li>Si no hay información de créditos, usa los segundos configurados antes del final como respaldo.</li>
+                            <li>Solo se activa dentro del reproductor: nunca en el menú principal ni con vídeos ocultos.</li>
+                            <li>Minimiza el vídeo en curso y muestra las sugerencias mientras siguen las letras del final.</li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            (function () {
+                'use strict';
+
+                var pluginId = 'f5051302-9a1f-417f-902d-c4e94faaa7fd';
+                var page = document.querySelector('#PostPlaySuggestionsConfigPage');
+                var form = document.querySelector('#ppsConfigForm');
+                var status = document.querySelector('#ppsStatusMessage');
+
+                function read(config, name) {
+                    if (config[name] !== undefined && config[name] !== null) {
+                        return config[name];
+                    }
+                    var camel = name.charAt(0).toLowerCase() + name.slice(1);
+                    return config[camel];
+                }
+
+                function write(config, name, value) {
+                    config[name] = value;
+                    var camel = name.charAt(0).toLowerCase() + name.slice(1);
+                    if (Object.prototype.hasOwnProperty.call(config, camel)) {
+                        config[camel] = value;
+                    }
+                }
+
+                function clamp(value, min, max, fallback) {
+                    var parsed = parseInt(value, 10);
+                    if (isNaN(parsed)) {
+                        parsed = fallback;
+                    }
+                    return Math.max(min, Math.min(max, parsed));
+                }
+
+                function setStatus(message) {
+                    if (status) {
+                        status.textContent = message || '';
+                    }
+                }
+
+                function clampField(selector, min, max, fallback) {
+                    var input = document.querySelector(selector);
+                    if (!input) {
+                        return;
+                    }
+
+                    var normalize = function () {
+                        input.value = clamp(input.value, min, max, fallback);
+                    };
+
+                    input.addEventListener('change', normalize);
+                    input.addEventListener('blur', normalize);
+                }
+
+                function load() {
+                    if (!window.ApiClient || !ApiClient.getPluginConfiguration) {
+                        return;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        document.querySelector('#ppsEnabled').checked = read(config, 'Enabled') !== false;
+                        document.querySelector('#ppsMaxSuggestions').value = clamp(read(config, 'MaxSuggestions'), 1, 12, 6);
+                        document.querySelector('#ppsTriggerSeconds').value = clamp(read(config, 'TriggerSecondsBeforeEnd'), 1, 300, 20);
+                        document.querySelector('#ppsFinaleOnly').checked = read(config, 'ShowOnSeriesFinaleOnly') !== false;
+                        setStatus('');
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function () {
+                        setStatus('No se pudo cargar la configuración. Revisa la consola del navegador.');
+                        Dashboard.hideLoadingMsg();
+                    });
+                }
+
+                form.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    Dashboard.showLoadingMsg();
+
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        write(config, 'Enabled', document.querySelector('#ppsEnabled').checked);
+                        write(config, 'MaxSuggestions', clamp(document.querySelector('#ppsMaxSuggestions').value, 1, 12, 6));
+                        write(config, 'TriggerSecondsBeforeEnd', clamp(document.querySelector('#ppsTriggerSeconds').value, 1, 300, 20));
+                        write(config, 'ShowOnSeriesFinaleOnly', document.querySelector('#ppsFinaleOnly').checked);
+                        return ApiClient.updatePluginConfiguration(pluginId, config);
+                    }).then(function () {
+                        Dashboard.processPluginConfigurationUpdateResult();
+                        setStatus('Configuración guardada. Los cambios se aplican en la próxima reproducción.');
+                    }).catch(function () {
+                        Dashboard.hideLoadingMsg();
+                        setStatus('No se pudo guardar la configuración.');
+                    });
+                });
+
+                page.addEventListener('pageshow', load);
+                page.addEventListener('viewshow', load);
+                clampField('#ppsMaxSuggestions', 1, 12, 6);
+                clampField('#ppsTriggerSeconds', 1, 300, 20);
+                setTimeout(load, 250);
+            })();
+        </script>
+    </div>
+</body>
+</html>

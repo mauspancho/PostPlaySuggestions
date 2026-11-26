@@ -1,0 +1,19 @@
+# Compilación
+bin/
+obj/
+
+# Artefactos de release (se suben como asset, no al repo)
+artifacts/
+
+# Documentos locales
+INSTRUCCIONES.md
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Sistema
+.DS_Store
+Thumbs.db
