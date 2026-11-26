@@ -74,20 +74,25 @@ docker restart jellyfin
 
 ## Publicar una versión nueva
 
-```bash
-# 1. Subir la versión en el .csproj, Plugin.cs y Web/postplay-suggestions.js
-# 2. Compilar y empaquetar
-~/.dotnet/dotnet build -c Release
-mkdir -p artifacts
-zip -j artifacts/PostPlaySuggestions_VERSION.zip \
-    bin/Release/net10.0/Jellyfin.Plugin.PostPlaySuggestions.dll
-md5sum artifacts/PostPlaySuggestions_VERSION.zip   # usar como checksum
+Cada cambio del plugin debe publicarse como una versión nueva para que Jellyfin pueda
+instalarlo o actualizarlo desde el repositorio. El proceso está automatizado en un solo comando:
 
-# 3. Actualizar manifest.json con la versión, fecha y checksum
-# 4. Commit, push y release con el ZIP adjunto
-gh release create vVERSION artifacts/PostPlaySuggestions_VERSION.zip \
-    --title "Post Play Suggestions VERSION" --notes "…"
+```bash
+./release.sh 0.4.1.0 "Descripción breve de los cambios"
 ```
+
+El script:
+
+1. actualiza la versión en el `.csproj`, `Plugin.cs` y `Web/postplay-suggestions.js`;
+2. compila en Release;
+3. empaqueta `artifacts/PostPlaySuggestions_<versión>.zip` con el DLL en la raíz;
+4. agrega la versión al principio de `manifest.json` con checksum MD5 y fecha;
+5. hace commit y push a `main`;
+6. crea el release `v<versión>` con el ZIP adjunto;
+7. verifica que el manifest y el asset respondan y que el checksum coincida.
+
+Requisitos: `gh` autenticado, `~/.dotnet/dotnet` (o `DOTNET=/ruta/dotnet`) y `zip`
+(o Python 3 como respaldo).
 
 ## Verificar
 
