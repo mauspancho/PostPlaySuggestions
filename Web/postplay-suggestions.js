@@ -24,6 +24,7 @@
         activationPending: false,
         dismissed: false,
         wasFullscreen: false,
+        keepFullscreen: false,
         overlay: null,
         suggestions: [],
         lastNowPlayingCheck: 0,
@@ -114,6 +115,22 @@
             }
             return response.json();
         });
+    }
+
+    function reportPanel(active) {
+        if (!state.sessionId || !window.ApiClient || typeof ApiClient.ajax !== 'function') {
+            return;
+        }
+
+        try {
+            var url = ApiClient.getUrl(PLUGIN_PATH + '/Panel', {
+                sessionId: state.sessionId,
+                active: active ? 'true' : 'false'
+            });
+            ApiClient.ajax({ type: 'POST', url: url });
+        } catch (error) {
+            // Reporting is best-effort: the overlay keeps working without it.
+        }
     }
 
     function normalizeConfig(payload) {
@@ -664,19 +681,36 @@
         state.activationPending = false;
         state.video = video || state.video;
         state.playerHost = findPlayerHost(state.video);
-        state.wasFullscreen = !!document.fullscreenElement;
 
-        if (document.fullscreenElement && document.exitFullscreen) {
-            document.exitFullscreen().catch(function () {});
+        var fullscreenElement = document.fullscreenElement;
+        var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        state.wasFullscreen = !!fullscreenElement;
+        state.keepFullscreen = !!(fullscreenElement
+            && isTouch
+            && fullscreenElement.tagName !== 'VIDEO');
+
+        if (fullscreenElement && document.exitFullscreen && !state.keepFullscreen) {
+            try {
+                var exitResult = document.exitFullscreen();
+                if (exitResult && exitResult.catch) {
+                    exitResult.catch(function () {});
+                }
+            } catch (error) {
+                // Some WebViews do not expose the Fullscreen API.
+            }
         }
 
         document.body.classList.add('pps-active');
+        if (state.keepFullscreen) {
+            document.body.classList.add('pps-fullscreen');
+        }
         if (state.playerHost) {
             state.playerHost.classList.add('pps-player-host');
         }
 
         buildOverlay(item);
         applyTheme();
+        reportPanel(true);
 
         loadSuggestions(item).then(function (items) {
             state.suggestions = items;
@@ -687,6 +721,8 @@
     }
 
     function closeSuggestions(reason, silent) {
+        var wasActive = state.activated;
+
         if (state.overlay && state.overlay.parentNode) {
             state.overlay.parentNode.removeChild(state.overlay);
         }
@@ -696,6 +732,11 @@
         state.suggestions = [];
 
         document.body.classList.remove('pps-active');
+        document.body.classList.remove('pps-fullscreen');
+
+        if (wasActive) {
+            reportPanel(false);
+        }
 
         if (state.playerHost) {
             state.playerHost.classList.remove('pps-player-host');
@@ -705,10 +746,32 @@
             state.dismissed = true;
         }
 
-        if (state.wasFullscreen && !silent && state.playerHost && state.playerHost.requestFullscreen) {
-            state.playerHost.requestFullscreen().catch(function () {});
+        if (!state.keepFullscreen
+            && state.wasFullscreen
+            && !silent
+            && state.playerHost
+            && state.playerHost.requestFullscreen) {
+            try {
+                var requestResult = state.playerHost.requestFullscreen();
+                if (requestResult && requestResult.catch) {
+                    requestResult.catch(function () {});
+                }
+            } catch (error) {
+                // Fullscreen can be blocked when there is no user gesture.
+            }
         }
         state.wasFullscreen = false;
+        state.keepFullscreen = false;
+    }
+
+    function overlayHost() {
+        if (state.keepFullscreen
+            && document.fullscreenElement
+            && document.fullscreenElement.tagName !== 'VIDEO') {
+            return document.fullscreenElement;
+        }
+
+        return document.body;
     }
 
     function buildOverlay(item) {
@@ -799,19 +862,142 @@
             }
         });
 
-        document.body.appendChild(overlay);
+        overlayHost().appendChild(overlay);
         state.overlay = overlay;
 
         setTimeout(function () {
             if (state.overlay) {
-                closeButton.focus();
+                focusFirstSuggestion();
             }
         }, 50);
     }
 
+    function focusFirstSuggestion() {
+        if (!state.overlay) {
+            return;
+        }
+
+        var target = state.overlay.querySelector('.pps-poster')
+            || state.overlay.querySelector('.pps-btn-primary')
+            || state.overlay.querySelector('.pps-close');
+        if (target) {
+            target.focus();
+        }
+    }
+
+    function overlayFocusables() {
+        if (!state.overlay) {
+            return [];
+        }
+
+        var nodes = state.overlay.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+        var result = [];
+
+        for (var index = 0; index < nodes.length; index += 1) {
+            var node = nodes[index];
+            if (node.disabled) {
+                continue;
+            }
+            var rect = node.getBoundingClientRect();
+            if (rect.width < 2 && rect.height < 2) {
+                continue;
+            }
+            result.push(node);
+        }
+
+        return result;
+    }
+
+    function moveOverlayFocus(direction) {
+        var nodes = overlayFocusables();
+        if (!nodes.length) {
+            return false;
+        }
+
+        var active = document.activeElement;
+        if (nodes.indexOf(active) === -1) {
+            nodes[0].focus();
+            return true;
+        }
+
+        var rect = active.getBoundingClientRect();
+        var centerX = rect.left + (rect.width / 2);
+        var centerY = rect.top + (rect.height / 2);
+        var best = null;
+        var bestScore = Infinity;
+
+        for (var index = 0; index < nodes.length; index += 1) {
+            var node = nodes[index];
+            if (node === active) {
+                continue;
+            }
+
+            var candidate = node.getBoundingClientRect();
+            var x = candidate.left + (candidate.width / 2);
+            var y = candidate.top + (candidate.height / 2);
+            var dx = x - centerX;
+            var dy = y - centerY;
+            var inDirection;
+            if (direction === 'left') {
+                inDirection = dx < -4;
+            } else if (direction === 'right') {
+                inDirection = dx > 4;
+            } else if (direction === 'up') {
+                inDirection = dy < -4;
+            } else {
+                inDirection = dy > 4;
+            }
+
+            if (!inDirection) {
+                continue;
+            }
+
+            var horizontal = direction === 'left' || direction === 'right';
+            var primary = horizontal ? Math.abs(dx) : Math.abs(dy);
+            var secondary = horizontal ? Math.abs(dy) : Math.abs(dx);
+            var score = primary + (secondary * 2.2);
+
+            if (score < bestScore) {
+                bestScore = score;
+                best = node;
+            }
+        }
+
+        if (best) {
+            best.focus();
+            if (best.scrollIntoView) {
+                best.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     function onOverlayKeyDown(event) {
-        if (event.key === 'Escape' && state.activated) {
+        if (!state.activated || !state.overlay) {
+            return;
+        }
+
+        if (event.key === 'Escape' || event.key === 'GoBack' || event.key === 'BrowserBack') {
+            event.preventDefault();
             closeSuggestions('escape');
+            return;
+        }
+
+        var directions = {
+            ArrowLeft: 'left',
+            ArrowRight: 'right',
+            ArrowUp: 'up',
+            ArrowDown: 'down',
+            Left: 'left',
+            Right: 'right',
+            Up: 'up',
+            Down: 'down'
+        };
+        var direction = directions[event.key];
+        if (direction && moveOverlayFocus(direction)) {
+            event.preventDefault();
         }
     }
 
@@ -989,6 +1175,10 @@
                 '<p>No encontramos sugerencias para este título.</p>' +
                 '<button type="button" class="pps-btn pps-btn-primary" data-action="close">Volver al reproductor</button>' +
                 '</div>';
+            var emptyButton = body.querySelector('.pps-btn');
+            if (emptyButton) {
+                emptyButton.focus();
+            }
             return;
         }
 
@@ -1082,6 +1272,7 @@
 
         body.innerHTML = '';
         body.appendChild(grid);
+        focusFirstSuggestion();
     }
 
     function findSuggestion(id) {
@@ -1480,7 +1671,15 @@
         });
         window.addEventListener('pageshow', scheduleTheme);
         window.addEventListener('resize', scheduleTheme);
-        window.addEventListener('fullscreenchange', scheduleTheme);
+        window.addEventListener('fullscreenchange', function () {
+            scheduleTheme();
+            if (state.overlay) {
+                var host = overlayHost();
+                if (state.overlay.parentNode !== host) {
+                    host.appendChild(state.overlay);
+                }
+            }
+        });
 
         if (document.body) {
             new MutationObserver(handleMutations).observe(document.body, {

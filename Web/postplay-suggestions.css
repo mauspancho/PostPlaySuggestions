@@ -40,6 +40,15 @@ body.pps-active .pps-player-host video {
     object-fit: contain !important;
 }
 
+/* When the device keeps native/HTML fullscreen (mobile/TV), do not shrink the
+   player: the overlay is mounted inside the fullscreen element instead. */
+body.pps-fullscreen .videoPlayerContainer,
+body.pps-fullscreen .pps-player-host {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+}
+
 .pps-overlay {
     position: fixed;
     inset: 0;
@@ -66,6 +75,7 @@ body.pps-active .pps-player-host video {
     width: var(--pps-panel-width);
     max-width: 100vw;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     background: linear-gradient(180deg, var(--pps-surface) 0%, var(--pps-bg) 100%);
     border-left: 1px solid var(--pps-border);
@@ -395,6 +405,7 @@ body.pps-active .pps-player-host video {
     body.pps-active .pps-player-host {
         width: 100vw !important;
         height: 34vh !important;
+        height: 34dvh !important;
     }
 
     .pps-overlay {
@@ -406,10 +417,12 @@ body.pps-active .pps-player-host video {
     .pps-panel {
         width: 100vw;
         height: 66vh;
+        height: 66dvh;
         border-left: 0;
         border-top: 1px solid var(--pps-border);
         border-radius: 18px 18px 0 0;
         animation-name: pps-slide-up;
+        padding-bottom: env(safe-area-inset-bottom);
     }
 
     .pps-header {
@@ -445,6 +458,41 @@ body.pps-active .pps-player-host video {
 
     .pps-btn {
         width: 100%;
+    }
+}
+
+/* Remote controls (Android TV, TV browsers, webOS/Tizen): make the focused
+   control clearly visible and bigger enough to be reachable with a D-pad. */
+.pps-overlay button:focus-visible,
+.pps-overlay [tabindex]:focus-visible {
+    outline: 3px solid var(--pps-accent);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.35);
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .pps-btn {
+        min-height: 2.6rem;
+        font-size: 0.8rem;
+    }
+
+    .pps-close {
+        width: 2.8rem;
+        height: 2.8rem;
+    }
+
+    .pps-card:hover {
+        transform: none;
+    }
+
+    .pps-card:hover .pps-poster img {
+        transform: none;
+        filter: none;
+    }
+
+    .pps-play-badge {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.9);
     }
 }
 

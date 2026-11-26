@@ -33,21 +33,39 @@ colores del tema activo.
 - Minimiza el reproductor (38 % del ancho) y muestra las sugerencias en un panel ancho, con rejilla adaptable de tarjetas.
 - Tarjetas con póster, metadatos, botón **Reproducir** y **Detalles**.
 - Minimiza el reproductor y restaura la pantalla completa al cerrar.
+- Navegación con mando/TV: foco visible y movimiento con las flechas del D-pad.
 - Tema dinámico: lee variables CSS y colores computados, y reacciona a cambios de tema con
   `MutationObserver` (variables `--pps-*`).
-- Diseño adaptable: panel lateral en escritorio, panel inferior en móvil.
+- Diseño adaptable: panel lateral en escritorio, panel inferior en móvil (con `dvh` y áreas seguras).
+- **Apps nativas** (Android TV, iOS, Swiftfin, Findroid, Infuse, Kodi, Roku…): estas apps no pueden
+  mostrar el panel web. Al empezar los créditos, el servidor reproduce automáticamente la mejor
+  sugerencia en el mismo dispositivo (`NativeAutoPlay`). La app de Android con reproductor web sigue
+  mostrando el panel; el servidor lo detecta y no lanza una segunda reproducción.
+
+## Cómo funciona en cada tipo de cliente
+
+| Cliente | Experiencia |
+| --- | --- |
+| Navegador, Tizen, webOS, Xbox, app Android con reproductor web | Panel lateral/inferior con tarjetas y botones |
+| Android TV, iOS, Swiftfin, Findroid, Infuse, Kodi, Roku | Reproducción automática de la sugerencia al empezar los créditos |
+
+El modo nativo se puede desactivar en la configuración del plugin. Solo actúa en sesiones cuyo
+cliente se identifica como app nativa; nunca en clientes web/TV web.
 
 ## Estructura
 
 ```
 Jellyfin.Plugin.PostPlaySuggestions.csproj   Proyecto net10.0 (Jellyfin 12.4)
 Plugin.cs                                    Entrada del plugin (GUID f5051302-…)
-PluginConfiguration.cs                       Enabled, MaxSuggestions, TriggerSecondsBeforeEnd, ShowOnSeriesFinaleOnly
-Api/SuggestionsConfigController.cs           Config, Script, Styles, NowPlaying, Finale, Credits
+PluginConfiguration.cs                       Enabled, MaxSuggestions, TriggerSecondsBeforeEnd, ShowOnSeriesFinaleOnly, NativeAutoPlay
+Api/SuggestionsConfigController.cs           Config, Script, Styles, NowPlaying, Finale, Credits, Panel
 Services/PostPlayServiceRegistrator.cs       Registro DI
 Services/PostPlayStartupFilter.cs            Registra el middleware al inicio del pipeline
 Services/PostPlayInjectionMiddleware.cs      Inyecta el loader en /web/
 Services/PostPlayWebInjection.cs             Bloque HTML compartido
+Services/CreditsResolver.cs                  Detección compartida de créditos y final de serie
+Services/WebPanelRegistry.cs                 Sesiones con panel web activo
+Services/PostPlayNativeService.cs            Modo nativo (Android TV, iOS, reproductores nativos)
 Web/configPage.html                          Página de administración
 Web/postplay-suggestions.js                  Lógica del frontend
 Web/postplay-suggestions.css                 Estilos
@@ -115,6 +133,7 @@ En el panel de Jellyfin: **Administración → Complementos → Post Play Sugges
 | Porcentaje del metraje | Estimación del inicio de créditos cuando no hay segmentos ni capítulos (80–99) | 94 |
 | Segundos antes del final | Antelación de respaldo cuando no se detectan créditos (1–300) | 20 |
 | Solo al finalizar la serie | Solo último episodio de la última temporada | Sí |
+| Continuar en apps nativas | Reproduce la mejor sugerencia en Android TV/iOS/reproductores nativos al empezar los créditos | Sí |
 
 ## Notas técnicas
 

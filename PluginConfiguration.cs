@@ -33,4 +33,11 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// after the final episode of a series.
     /// </summary>
     public bool ShowOnSeriesFinaleOnly { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether native clients (Android TV, iOS, native
+    /// mobile players, ...) should automatically start the best suggestion when the
+    /// end credits begin. Native clients cannot render the web panel.
+    /// </summary>
+    public bool NativeAutoPlay { get; set; } = true;
 }

@@ -63,6 +63,19 @@
                         </div>
                     </div>
 
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ppsNativeAutoPlay" type="checkbox" is="emby-checkbox" />
+                            <span>Continuar automáticamente en apps nativas</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Android TV y los reproductores nativos (iOS, reproductor ExoPlayer de Android, etc.) no pueden
+                            mostrar el panel web. Con esta opción, al empezar los créditos el servidor reproduce la mejor
+                            sugerencia en ese mismo dispositivo, como hace Netflix. En navegadores, TV web y en la app de
+                            Android con reproductor web se sigue mostrando el panel con botones.
+                        </div>
+                    </div>
+
                     <div class="verticalSection" style="margin-top:1.5em;">
                         <button is="emby-button" type="submit" class="raised button-submit block">
                             <span>Guardar</span>
@@ -79,6 +92,7 @@
                             <li>Si no hay información de créditos, estima el inicio según el porcentaje configurado y, como último recurso, los segundos antes del final.</li>
                             <li>Solo se activa dentro del reproductor: nunca en el menú principal ni con vídeos ocultos.</li>
                             <li>Minimiza el vídeo en curso y muestra las sugerencias mientras siguen las letras del final.</li>
+                            <li>En apps nativas (Android TV, iOS, reproductor ExoPlayer) el panel no es posible: al empezar los créditos se reproduce automáticamente la mejor sugerencia en ese dispositivo.</li>
                         </ul>
                     </div>
                 </form>
@@ -150,6 +164,7 @@
                         document.querySelector('#ppsTriggerSeconds').value = clamp(read(config, 'TriggerSecondsBeforeEnd'), 1, 300, 20);
                         document.querySelector('#ppsFallbackPercent').value = clamp(read(config, 'FallbackCreditsPercent'), 80, 99, 94);
                         document.querySelector('#ppsFinaleOnly').checked = read(config, 'ShowOnSeriesFinaleOnly') !== false;
+                        document.querySelector('#ppsNativeAutoPlay').checked = read(config, 'NativeAutoPlay') !== false;
                         setStatus('');
                         Dashboard.hideLoadingMsg();
                     }).catch(function () {
@@ -168,6 +183,7 @@
                         write(config, 'TriggerSecondsBeforeEnd', clamp(document.querySelector('#ppsTriggerSeconds').value, 1, 300, 20));
                         write(config, 'FallbackCreditsPercent', clamp(document.querySelector('#ppsFallbackPercent').value, 80, 99, 94));
                         write(config, 'ShowOnSeriesFinaleOnly', document.querySelector('#ppsFinaleOnly').checked);
+                        write(config, 'NativeAutoPlay', document.querySelector('#ppsNativeAutoPlay').checked);
                         return ApiClient.updatePluginConfiguration(pluginId, config);
                     }).then(function () {
                         Dashboard.processPluginConfigurationUpdateResult();

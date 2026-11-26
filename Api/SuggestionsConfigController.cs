@@ -1,13 +1,8 @@
 using System.Security.Claims;
-using System.Text.RegularExpressions;
-using Jellyfin.Data.Enums;
-using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Plugin.PostPlaySuggestions;
-using MediaBrowser.Controller.Chapters;
-using MediaBrowser.Controller.Entities;
+using Jellyfin.Plugin.PostPlaySuggestions.Services;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Controller.MediaSegments;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -26,14 +21,10 @@ public sealed class SuggestionsConfigController : ControllerBase
     private const string JsResource = "Jellyfin.Plugin.PostPlaySuggestions.Web.postplay-suggestions.js";
     private const string CssResource = "Jellyfin.Plugin.PostPlaySuggestions.Web.postplay-suggestions.css";
 
-    private static readonly Regex CreditsChapterPattern = new(
-        "end\\s*credits?|endcredit|closing\\s*credits?|end\\s*titles?|credits?|cr[eé]ditos?(\\s*finales)?|t[ií]tulos?\\s*de\\s*cr[eé]ditos?|g[eé]n[eé]rique|abspann|nachspann",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     private readonly ISessionManager _sessionManager;
     private readonly ILibraryManager _libraryManager;
-    private readonly IMediaSegmentManager _mediaSegmentManager;
-    private readonly IChapterManager _chapterManager;
+    private readonly CreditsResolver _creditsResolver;
+    private readonly WebPanelRegistry _panelRegistry;
     private readonly ILogger<SuggestionsConfigController> _logger;
 
     /// <summary>
@@ -41,20 +32,20 @@ public sealed class SuggestionsConfigController : ControllerBase
     /// </summary>
     /// <param name="sessionManager">Session manager.</param>
     /// <param name="libraryManager">Library manager.</param>
-    /// <param name="mediaSegmentManager">Media segment manager.</param>
-    /// <param name="chapterManager">Chapter manager.</param>
+    /// <param name="creditsResolver">Credits resolver.</param>
+    /// <param name="panelRegistry">Registry of sessions with an active web panel.</param>
     /// <param name="logger">Logger.</param>
     public SuggestionsConfigController(
         ISessionManager sessionManager,
         ILibraryManager libraryManager,
-        IMediaSegmentManager mediaSegmentManager,
-        IChapterManager chapterManager,
+        CreditsResolver creditsResolver,
+        WebPanelRegistry panelRegistry,
         ILogger<SuggestionsConfigController> logger)
     {
         _sessionManager = sessionManager;
         _libraryManager = libraryManager;
-        _mediaSegmentManager = mediaSegmentManager;
-        _chapterManager = chapterManager;
+        _creditsResolver = creditsResolver;
+        _panelRegistry = panelRegistry;
         _logger = logger;
     }
 
@@ -75,6 +66,7 @@ public sealed class SuggestionsConfigController : ControllerBase
             maxSuggestions = Math.Clamp(configuration.MaxSuggestions, 1, 12),
             triggerSecondsBeforeEnd = Math.Clamp(configuration.TriggerSecondsBeforeEnd, 1, 300),
             showOnSeriesFinaleOnly = configuration.ShowOnSeriesFinaleOnly,
+            nativeAutoPlay = configuration.NativeAutoPlay,
             pluginId = PostPlaySuggestionsPlugin.PluginId.ToString("D"),
             version = PostPlaySuggestionsPlugin.PluginVersion
         };
@@ -176,7 +168,7 @@ public sealed class SuggestionsConfigController : ControllerBase
     /// <returns>Finale information.</returns>
     [Authorize]
     [HttpGet("Finale")]
-    public ActionResult<object> GetFinale([FromQuery] Guid itemId)
+    public async Task<ActionResult<object>> GetFinale([FromQuery] Guid itemId)
     {
         Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
 
@@ -186,39 +178,17 @@ public sealed class SuggestionsConfigController : ControllerBase
             return new { isFinale = false, reason = "not-an-episode" };
         }
 
-        var episodes = _libraryManager.GetItemList(new InternalItemsQuery
-            {
-                Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Episode],
-                AncestorIds = [episode.SeriesId],
-                IsVirtualItem = false
-            })
-            .OfType<Episode>()
-            .ToList();
-
-        var regularEpisodes = episodes.Where(candidate => (candidate.ParentIndexNumber ?? 0) > 0).ToList();
-        if (regularEpisodes.Count == 0)
-        {
-            regularEpisodes = episodes;
-        }
-
-        var finalSeason = regularEpisodes.Count == 0
-            ? 0
-            : regularEpisodes.Max(candidate => candidate.ParentIndexNumber ?? 0);
-
-        var finalEpisode = regularEpisodes
-            .Where(candidate => (candidate.ParentIndexNumber ?? 0) == finalSeason)
-            .OrderBy(candidate => candidate.IndexNumber ?? 0)
-            .ThenBy(candidate => candidate.IndexNumberEnd ?? 0)
-            .LastOrDefault();
+        var info = await _creditsResolver
+            .GetFinaleInfoAsync(episode, HttpContext.RequestAborted)
+            .ConfigureAwait(false);
 
         return new
         {
-            isFinale = finalEpisode is not null && finalEpisode.Id == episode.Id,
+            isFinale = info.IsFinale,
             seriesId = episode.SeriesId,
-            finalSeason,
-            finalEpisodeId = finalEpisode?.Id,
-            finalEpisodeName = finalEpisode?.Name
+            finalSeason = info.FinalSeason,
+            finalEpisodeId = info.FinalEpisodeId,
+            finalEpisodeName = info.FinalEpisodeName
         };
     }
 
@@ -240,128 +210,43 @@ public sealed class SuggestionsConfigController : ControllerBase
             return NotFound();
         }
 
-        var runTimeTicks = item.RunTimeTicks ?? 0;
-        long? startTicks = null;
-        var source = "none";
-
-        try
-        {
-            var libraryOptions = _libraryManager.GetLibraryOptions(item);
-            var segments = await _mediaSegmentManager
-                .GetSegmentsAsync(item, [MediaSegmentType.Outro], libraryOptions, false)
-                .ConfigureAwait(false);
-
-            var outro = segments
-                .Where(segment => segment.StartTicks > 0
-                    && (runTimeTicks <= 0 || segment.StartTicks < runTimeTicks - TimeSpan.TicksPerSecond))
-                .OrderBy(segment => segment.StartTicks)
-                .FirstOrDefault();
-
-            if (outro is not null)
-            {
-                startTicks = outro.StartTicks;
-                source = "segment";
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "[PostPlaySuggestions] Could not read media segments for {ItemId}", itemId);
-        }
-
-        if (startTicks is null)
-        {
-            try
-            {
-                var chapters = _chapterManager.GetChapters(itemId);
-                var ordered = chapters
-                    .Where(chapter => chapter.StartPositionTicks > 0)
-                    .OrderBy(chapter => chapter.StartPositionTicks)
-                    .ToList();
-
-                if (ordered.Count > 0)
-                {
-                    var isEpisode = item is Episode;
-                    var finalPartStart = runTimeTicks > 0
-                        ? (long)(runTimeTicks * 0.6)
-                        : TimeSpan.TicksPerSecond;
-
-                    // Look only at the final 40 % of the item so that "Opening Credits"
-                    // chapters do not shadow the real end credits chapter.
-                    var named = ordered
-                        .Where(chapter => chapter.StartPositionTicks >= finalPartStart)
-                        .FirstOrDefault(chapter => IsCreditsChapterName(chapter.Name));
-
-                    if (named is not null)
-                    {
-                        startTicks = named.StartPositionTicks;
-                        source = "chapter-name";
-                    }
-                    else if (runTimeTicks > 0)
-                    {
-                        var last = ordered[^1];
-                        var lastStart = last.StartPositionTicks;
-                        var ratio = lastStart / (double)runTimeTicks;
-                        var tail = runTimeTicks - lastStart;
-                        var maximumTail = isEpisode
-                            ? Math.Max(5 * TimeSpan.TicksPerMinute, (long)(runTimeTicks * 0.10))
-                            : 15 * TimeSpan.TicksPerMinute;
-
-                        var isLastChapterCredits = lastStart < runTimeTicks - TimeSpan.TicksPerSecond
-                            && (isEpisode
-                                ? ratio >= 0.92
-                                    || (ordered.Count >= 3 && ratio >= 0.85 && tail <= maximumTail)
-                                : ratio >= 0.90
-                                    || (ordered.Count >= 4 && ratio >= 0.80 && tail <= maximumTail));
-
-                        if (isLastChapterCredits)
-                        {
-                            startTicks = lastStart;
-                            source = "chapter-last";
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "[PostPlaySuggestions] Could not read chapters for {ItemId}", itemId);
-            }
-        }
-
-        if (startTicks is null && runTimeTicks > 5 * TimeSpan.TicksPerMinute)
-        {
-            // No segment and no usable chapter information: estimate the credits
-            // start from a percentage of the runtime so the panel still opens near
-            // the end credits instead of only a few seconds before the file ends.
-            var configuration = PostPlaySuggestionsPlugin.Instance?.Configuration ?? new PluginConfiguration();
-            var percent = item is Episode
-                ? 97
-                : Math.Clamp(configuration.FallbackCreditsPercent, 80, 99);
-            var estimate = (long)(runTimeTicks * (percent / 100.0));
-
-            if (estimate > 0 && estimate < runTimeTicks - TimeSpan.TicksPerSecond)
-            {
-                startTicks = estimate;
-                source = "estimate";
-            }
-        }
+        var info = await _creditsResolver
+            .GetCreditsAsync(item, HttpContext.RequestAborted)
+            .ConfigureAwait(false);
+        var startTicks = info.StartTicks;
 
         return new
         {
             itemId,
             hasCredits = startTicks.HasValue,
-            source,
+            source = info.Source,
             startTicks = startTicks ?? 0,
             startSeconds = startTicks.HasValue
                 ? startTicks.Value / (double)TimeSpan.TicksPerSecond
                 : (double?)null,
-            runTimeTicks,
+            runTimeTicks = item.RunTimeTicks ?? 0,
             isEpisode = item is Episode
         };
     }
 
-    private static bool IsCreditsChapterName(string? name)
+    /// <summary>
+    /// Records whether a web client is currently showing the suggestions panel.
+    /// The native playback watcher uses this to avoid starting a second playback
+    /// on clients that already render the panel.
+    /// </summary>
+    /// <param name="sessionId">Session identifier.</param>
+    /// <param name="active">Whether the panel is active.</param>
+    /// <returns>Empty response.</returns>
+    [Authorize]
+    [HttpPost("Panel")]
+    public ActionResult ReportPanel([FromQuery] string? sessionId, [FromQuery] bool active)
     {
-        return !string.IsNullOrWhiteSpace(name) && CreditsChapterPattern.IsMatch(name);
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            _panelRegistry.Set(sessionId, active);
+        }
+
+        return NoContent();
     }
 
     private IActionResult GetEmbeddedResource(string resourceName, string contentType)

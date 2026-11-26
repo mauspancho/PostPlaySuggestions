@@ -14,6 +14,9 @@ public sealed class PostPlayServiceRegistrator : IPluginServiceRegistrator
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
+        serviceCollection.AddSingleton<CreditsResolver>();
+        serviceCollection.AddSingleton<WebPanelRegistry>();
+        serviceCollection.AddHostedService<PostPlayNativeService>();
         serviceCollection.AddSingleton<IStartupFilter, PostPlayStartupFilter>();
     }
 }
