@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/mauspancho/PostPlaySuggestions/main/images/plugin-icon.png",
         "versions": [
             {
+                "version": "0.4.2.0",
+                "changelog": "Icono del plugin adaptado al visor: fondo degradado y logo centrado, sin recortes. Sin cambios de comportamiento.",
+                "targetAbi": "12.4.0.0",
+                "sourceUrl": "https://github.com/mauspancho/PostPlaySuggestions/releases/download/v0.4.2.0/PostPlaySuggestions_0.4.2.0.zip",
+                "checksum": "c08e4cda9f5d14bed8f0b3ec7df66b37",
+                "timestamp": "2026-11-26T21:25:21Z"
+            },
+            {
                 "version": "0.4.1.0",
                 "changelog": "Agrega el icono del plugin en el catálogo y en la página del complemento. Sin cambios de comportamiento.",
                 "targetAbi": "12.4.0.0",
