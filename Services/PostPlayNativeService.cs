@@ -172,9 +172,11 @@ public sealed class PostPlayNativeService : IHostedService, IDisposable
 
                 _triggered[key] = DateTime.UtcNow;
 
-                var controllingUserId = session.UserId.ToString("N");
+                // The first argument is the controlling session. The same session
+                // acts as controller so no additional user remote-control session
+                // is needed for a server-initiated playback.
                 await _sessionManager.SendPlayCommand(
-                        controllingUserId,
+                        session.Id,
                         session.Id,
                         new PlayRequest
                         {
@@ -187,7 +189,7 @@ public sealed class PostPlayNativeService : IHostedService, IDisposable
                 try
                 {
                     await _sessionManager.SendGeneralCommand(
-                            controllingUserId,
+                            session.Id,
                             session.Id,
                             new GeneralCommand(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                             {
@@ -299,9 +301,15 @@ public sealed class PostPlayNativeService : IHostedService, IDisposable
 
             foreach (var candidate in similar)
             {
-                if (IsValidSuggestion(candidate, current.Id, currentSeriesId))
+                if (!IsValidSuggestion(candidate, current.Id, currentSeriesId))
                 {
-                    return candidate;
+                    continue;
+                }
+
+                var playable = TryResolvePlayable(candidate, user);
+                if (playable is not null)
+                {
+                    return playable;
                 }
             }
         }
@@ -327,14 +335,80 @@ public sealed class PostPlayNativeService : IHostedService, IDisposable
 
             foreach (var candidate in items)
             {
-                if (IsValidSuggestion(candidate, current.Id, currentSeriesId))
+                if (!IsValidSuggestion(candidate, current.Id, currentSeriesId))
                 {
-                    return candidate;
+                    continue;
+                }
+
+                var playable = TryResolvePlayable(candidate, user);
+                if (playable is not null)
+                {
+                    return playable;
                 }
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Native clients expect a directly playable item. Series are resolved to their
+    /// next unwatched episode (or the first episode) before sending the play command.
+    /// </summary>
+    private BaseItem? TryResolvePlayable(
+        BaseItem candidate,
+        Jellyfin.Database.Implementations.Entities.User user)
+    {
+        if (candidate is Movie || candidate is Episode)
+        {
+            return candidate;
+        }
+
+        if (candidate is not Series series)
+        {
+            return null;
+        }
+
+        var next = FindSeriesEpisode(series, user, unplayedOnly: true)
+            ?? FindSeriesEpisode(series, user, unplayedOnly: false);
+
+        if (next is null)
+        {
+            _logger.LogDebug(
+                "[PostPlaySuggestions] Series {SeriesId} has no playable episodes for native playback",
+                series.Id);
+        }
+
+        return next;
+    }
+
+    private BaseItem? FindSeriesEpisode(
+        Series series,
+        Jellyfin.Database.Implementations.Entities.User user,
+        bool unplayedOnly)
+    {
+        var query = new InternalItemsQuery
+        {
+            User = user,
+            Recursive = true,
+            IncludeItemTypes = [BaseItemKind.Episode],
+            AncestorIds = [series.Id],
+            IsVirtualItem = false,
+            OrderBy =
+            [
+                (ItemSortBy.ParentIndexNumber, SortOrder.Ascending),
+                (ItemSortBy.IndexNumber, SortOrder.Ascending)
+            ],
+            Limit = 1,
+            EnableTotalRecordCount = false
+        };
+
+        if (unplayedOnly)
+        {
+            query.IsPlayed = false;
+        }
+
+        return _libraryManager.GetItemList(query).FirstOrDefault();
     }
 
     private static bool IsValidSuggestion(BaseItem candidate, Guid currentId, Guid currentSeriesId)
@@ -377,6 +451,10 @@ public sealed class PostPlayNativeService : IHostedService, IDisposable
 
         return combined.Contains("android", StringComparison.OrdinalIgnoreCase)
             || combined.Contains("ios", StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("apple tv", StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("appletv", StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("fire tv", StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("firetv", StringComparison.OrdinalIgnoreCase)
             || combined.Contains("swiftfin", StringComparison.OrdinalIgnoreCase)
             || combined.Contains("findroid", StringComparison.OrdinalIgnoreCase)
             || combined.Contains("infuse", StringComparison.OrdinalIgnoreCase)
