@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/mauspancho/PostPlaySuggestions/main/images/plugin-icon.png",
         "versions": [
             {
+                "version": "0.5.1.0",
+                "changelog": "Corrige el modo nativo para que Android TV y reproductores nativos reciban la orden de reproducción correctamente; las series se resuelven al siguiente episodio reproducible. Añade detección de Fire TV y Apple TV.",
+                "targetAbi": "12.4.0.0",
+                "sourceUrl": "https://github.com/mauspancho/PostPlaySuggestions/releases/download/v0.5.1.0/PostPlaySuggestions_0.5.1.0.zip",
+                "checksum": "e8bc1d3ffe24498e225812814b13ff2d",
+                "timestamp": "2026-11-27T00:01:30Z"
+            },
+            {
                 "version": "0.5.0.0",
                 "changelog": "Soporte para Android TV y reproductores nativos: reproduce la mejor sugerencia al empezar los créditos; mejoras del panel en móvil, pantalla completa y navegación con mando.",
                 "targetAbi": "12.4.0.0",
